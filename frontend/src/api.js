@@ -19,3 +19,8 @@ export async function fetchReport(year, month) {
   const r = await fetch(`${API_BASE}/parties/report${params}`);
   return r.json();
 }
+
+export async function clearParties() {
+  const r = await fetch(`${API_BASE}/parties`, { method: 'DELETE' });
+  return r.json();
+}

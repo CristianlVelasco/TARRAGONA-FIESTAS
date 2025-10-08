@@ -7,7 +7,9 @@ const mongoose = require('mongoose');
 router.post('/', async (req, res) => {
   try {
     const { cedula, invitados, horas } = req.body;
-    if (!cedula || !invitados || !horas) return res.status(400).json({ error: 'cedula, invitados y horas son obligatorios' });
+    if (!cedula || !invitados || !horas) {
+      return res.status(400).json({ error: 'cedula, invitados y horas son obligatorios' });
+    }
     const p = new Party({ cedula, invitados, horas });
     await p.save();
     res.status(201).json(p);
@@ -27,11 +29,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-/*
-  Reporte mensual:
-  GET /api/parties/report?year=2025&month=10
-  Si no se pasan year/month devuelve totales de todas las fiestas.
-*/
+// Reporte mensual
 router.get('/report', async (req, res) => {
   try {
     const { year, month } = req.query;
@@ -44,24 +42,25 @@ router.get('/report', async (req, res) => {
       match = { createdAt: { $gte: start, $lt: end } };
     }
 
-    // Totales globales
     const totalsAgg = await Party.aggregate([
       { $match: match },
-      { $group: {
+      {
+        $group: {
           _id: null,
           totalInvitados: { $sum: "$invitados" },
           totalHoras: { $sum: "$horas" },
           totalAmount: { $sum: "$total" },
           count: { $sum: 1 }
-      }}
+        }
+      }
     ]);
 
     const totals = totalsAgg[0] || { totalInvitados: 0, totalHoras: 0, totalAmount: 0, count: 0 };
 
-    // Cantidad de fiestas por rango de horas
     const rangesAgg = await Party.aggregate([
       { $match: match },
-      { $project: {
+      {
+        $project: {
           range: {
             $switch: {
               branches: [
@@ -72,11 +71,11 @@ router.get('/report', async (req, res) => {
               default: "unknown"
             }
           }
-      }},
+        }
+      },
       { $group: { _id: "$range", count: { $sum: 1 } } }
     ]);
 
-    // transformar a objeto { '1-3': n, '4-6': n, '7+': n }
     const ranges = { '1-3': 0, '4-6': 0, '7+': 0 };
     rangesAgg.forEach(r => { ranges[r._id] = r.count; });
 
@@ -92,6 +91,17 @@ router.get('/report', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'error generando reporte' });
+  }
+});
+
+// Eliminar todas las fiestas (DELETE /api/parties)
+router.delete('/', async (req, res) => {
+  try {
+    await Party.deleteMany({});
+    res.json({ message: 'Todas las fiestas fueron eliminadas correctamente.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error eliminando los registros' });
   }
 });
 
